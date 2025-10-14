@@ -171,6 +171,10 @@ Before deployment, verify the server's functionality using the **MCP Inspector**
 
 ### 4. Deployment on TrueFoundry (Video Guide)
 
+> **Important**: Sign up only on **https://demo.truefoundry.cloud/** for the Hackathon and do **NOT** use any other tenants/URLs.
+
+---
+
 With the code complete, the service is ready for containerization and deployment.
 
 The final deployment step involves using the TrueFoundry platform to containerize your code and 1) deploy your agent behind FastAPI endpoint and 2) deploy your custom MCP server.
