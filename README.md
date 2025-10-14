@@ -179,13 +179,13 @@ With the code complete, the service is ready for containerization and deployment
 
 The final deployment step involves using the TrueFoundry platform to containerize your code and 1) deploy your agent behind FastAPI endpoint and 2) deploy your custom MCP server.
 
-#### 4a. Deploy your agent behind FastAPI endpoint on TrueFoundry
+#### 4a. Deploy your agent behind FastAPI endpoint on TrueFoundry (~3mins watchtime)
 
 Watch this guide to see the full deployment process of Agent FastAPI endpoint in action.
 
 [![Watch the Deployment Guide](https://img.youtube.com/vi/Ps4h1tn10H4/0.jpg)](https://youtu.be/Ps4h1tn10H4)
 
-#### 4b. Deploy your custom MCP server on TrueFoundry
+#### 4b. Deploy your custom MCP server on TrueFoundry (~3mins watchtime)
 
 Watch this guide to see the full deployment process of MCP server in action.
 
