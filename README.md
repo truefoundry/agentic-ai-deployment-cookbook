@@ -169,17 +169,20 @@ Before deployment, verify the server's functionality using the **MCP Inspector**
     npx @modelcontextprotocol/inspector
     ```
 
-Watch this guide to quickly review the MCP Inspector interface. **[WIP]**
-
-[![Watch the Local Testing Guide](https://img.youtube.com/vi/oCmVtp-tutY/0.jpg)](https://youtu.be/oCmVtp-tutY)
-
-
 ### 4. Deployment on TrueFoundry (Video Guide)
 
 With the code complete, the service is ready for containerization and deployment.
 
 The final deployment step involves using the TrueFoundry platform to containerize your code and 1) deploy your agent behind FastAPI endpoint and 2) deploy your custom MCP server.
 
-Watch this guide to see the full deployment process in action. **[WIP]**
+#### 4a. Deploy your agent behind FastAPI endpoint on TrueFoundry
 
-[![Watch the TrueFoundry Deployment Guide](https://img.youtube.com/vi/XBh6P2V52mE/0.jpg)](https://youtu.be/XBh6P2V52mE)
+Watch this guide to see the full deployment process of Agent FastAPI endpoint in action.
+
+[![Watch the Deployment Guide](https://img.youtube.com/vi/Ps4h1tn10H4/0.jpg)](https://youtu.be/Ps4h1tn10H4)
+
+#### 4b. Deploy your custom MCP server on TrueFoundry
+
+Watch this guide to see the full deployment process of MCP server in action.
+
+[![Watch the Deployment Guide](https://img.youtube.com/vi/wL1MbcwUq7Q/0.jpg)](https://youtu.be/wL1MbcwUq7Q)
