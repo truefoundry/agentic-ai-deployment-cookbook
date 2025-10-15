@@ -133,7 +133,7 @@ uv run uvicorn src.agents.langgraph.server:app --host 0.0.0.0 --port 8000
 
 #### 3a. Create the MCP Server
 
-The **`mcp_server.py`** file uses the **FastMCP** framework to convert the single agent function (`conduct_research_and_report`) into a network-accessible tool.
+The **`agent_as_mcp_server.py`** file uses the **FastMCP** framework to convert the single agent function (`conduct_research_and_report`) into a network-accessible tool.
 - **[`With LangGraph`](./src/agents/langgraph/agent_as_mcp_server.py)**
 - **[`With CrewAI`](./src/agents/crewai/agent_as_mcp_server.py)**
 
@@ -159,7 +159,7 @@ The **`mcp_server.py`** file uses the **FastMCP** framework to convert the singl
 | **`@mcp.custom_route("/health")`** | Creates a standard HTTP endpoint for health checks. | **Crucial for Deployment.** This can be used as the **Liveness Probe** to monitor the service health. |
 | **Startup Configuration** | Sets the host and port for the internal Uvicorn server. | Must listen on `host="0.0.0.0"` and `port=8000` for containerization within TrueFoundry. |
 
-The `mcp_server.py` file uses **FastMCP** to wrap the agent logic into a deployable service and adds necessary deployment configuration.
+The `agent_as_mcp_server.py` file uses **FastMCP** to wrap the agent logic into a deployable service and adds necessary deployment configuration.
 
 #### 3d. Execution Command
 
