@@ -2,7 +2,7 @@
 
 This repository provides a minimal, end-to-end template for deploying a powerful, tool-powered **Agentic AI system**. We demonstrate wrapping an agent workflow (built with **CrewAI** or **LangGraph**) with scalable deployment via the **TrueFoundry AI Gateway** through:
 
-1) a custom agent on a **FastAPI** endpoint as well as 
+1) a custom agent on a **FastAPI** endpoint as well as
 2) a custom **Model Context Protocol (MCP) server** with **FastMCP**
 
 > **Note on Security:** We demonstrate a scenario **without MCP server authentication** for simplicity. For production deployments, **TrueFoundry** offers robust security features. Refer to the [TrueFoundry MCP Gateway Authentication Guide](https://docs.truefoundry.com/gateway/mcp-gateway-auth-security) for implementation details.
@@ -15,7 +15,23 @@ This guide follows the process of developing a single-purpose agent and wrapping
 
 ### 1. Getting Started
 
-#### 1a. Agent Flow Design (Jupyter Notebook)
+#### 1a. Install and Login to TrueFoundry
+
+Before you begin, you need to install the TrueFoundry SDK and authenticate with the platform.
+
+**Step 1: Install TrueFoundry**
+```bash
+pip install -U "truefoundry"
+```
+
+**Step 2: Login to TrueFoundry**
+```bash
+tfy login --host "https://demo.truefoundry.cloud"
+```
+
+> **Important**: For the hackathon, make sure to use the demo environment at `https://demo.truefoundry.cloud` as specified above.
+
+#### 1b. Agent Flow Design (Jupyter Notebook)
 
 The agent system is designed to perform **real-time research and format the output for human consumption**.
 
@@ -30,7 +46,7 @@ Review the design and test the flow interactively in the notebook:
 - **[`With LangGraph`](./notebooks/research_report_generation_langgraph.ipynb)**
 - **[`With CrewAI`](./notebooks/research_report_generation_crewai.ipynb)**
 
-#### 1b. TrueFoundry Integration Code
+#### 1c. TrueFoundry Integration Code
 
 You must configure your LLM framework to correctly route requests through the **TrueFoundry AI Gateway**.
 
@@ -44,7 +60,7 @@ truefoundry_llm = LLM(
     base_url="your_truefoundry_gateway_base_url",
     model="openai/openai-main/gpt-4o",  # Format: <provider>/<your-truefoundry-model-id>
 )
-# This format allows you to call any model (Anthropic, Gemini, etc.) 
+# This format allows you to call any model (Anthropic, Gemini, etc.)
 # configured on your TrueFoundry Gateway.
 ```
 
@@ -58,11 +74,11 @@ llm = ChatOpenAI(
     base_url="your_truefoundry_gateway_base_url/v1",
     model="openai-main/gpt-4o"  # Format: <your-truefoundry-model-id>
 )
-# This format allows you to call any model (Anthropic, Gemini, etc.) 
+# This format allows you to call any model (Anthropic, Gemini, etc.)
 # configured on your TrueFoundry Gateway.
 ```
 
-#### 1c. Python Environment Management (`uv`)
+#### 1d. Python Environment Management (`uv`)
 
 We use `uv` for ultra-fast, reproducible, and robust dependency management. Your repository uses a **[`pyproject.toml`](./pyproject.toml)** file to declare direct dependencies and a **[`uv.lock`](./uv.lock)** file to lock the entire environment.
 
@@ -75,11 +91,11 @@ To set up your project locally:
 | `uv sync` | **Installs all dependencies** listed in `pyproject.toml` using the exact versions specified in the `uv.lock` file, ensuring perfect reproducibility. |
 | `uv run <script>` | Executes a script within the project's virtual environment. |
 
-#### 1d. Python Script for Agent Code
+#### 1e. Python Script for Agent Code
 
-The final agent logic is isolated into a runnable Python script, which exposes the core `run_research_analysis(query)` function used by the FastAPI endpoint as well as the MCP server.
-- **[`With LangGraph`](./src/langgraph/research_report_generation.py)**
-- **[`With CrewAI`](./src/crewai/research_report_generation.py)**
+The final agent logic is isolated into a runnable Python script, which exposes the core `run_agent(query)` function used by the FastAPI endpoint as well as the MCP server.
+- **[`With LangGraph`](./src/agents/langgraph/server.py)**
+- **[`With CrewAI`](./src/agents/crewai/server.py)**
 
 ### 2. Deploy Agent Behind FastAPI Endpoint
 
@@ -88,19 +104,19 @@ For traditional RESTful communication, such as serving a **web UI** or integrati
 #### 2a. The FastAPI Endpoint Code
 
 This script defines the application, input structure, and the core routing logic.
-- **[`With LangGraph`](./src/langgraph/agent_fastapi.py)**
-- **[`With CrewAI`](./src/crewai/agent_fastapi.py)**
+- **[`With LangGraph`](./src/agents/langgraph/server.py)**
+- **[`With CrewAI`](./src/agents/crewai/server.py)**
 
 #### 2b. Core Component Explanation
 
 | Component | Code / Logic | Purpose in Deployment |
 | :--- | :--- | :--- |
-| **Agent Import** | `from src.{framework}.research_report_generation import run_research_analysis` | **The single key difference** between agent frameworks. This imports the core asynchronous function. |
+| **Agent Import** | `from src.{framework}.agent import run_agent` | **The single key difference** between agent frameworks. This imports the core asynchronous function. |
 | **`app = FastAPI(...)`** | Initialization | Creates the **main ASGI application** that the Uvicorn server will host. |
 | **`@app.get("/health")`** | Health Probe | A synchronous endpoint required by **TrueFoundry** for container health checks (Liveness). |
 | **`UserInput(BaseModel)`** | Input Schema | Defines the expected request body (`{"user_input": "..."}`), providing **validation** and clear API documentation. |
-| **`@app.post("/run_research_analysis")`** | Main Endpoint | Defines the primary entry point for external web/REST calls. |
-| **`await run_research_analysis(...)`** | Execution Bridge | Correctly **awaits** the asynchronous agent function. This ensures the long-running workflow does not block the main server's event loop, maintaining service responsiveness. |
+| **`@app.post("/chat")`** | Main Endpoint | Defines the primary entry point for external web/REST calls. |
+| **`await run_agent_endpoint(...)`** | Execution Bridge | Correctly **awaits** the asynchronous agent function. This ensures the long-running workflow does not block the main server's event loop, maintaining service responsiveness. |
 
 ***
 
@@ -110,7 +126,7 @@ To run the standalone FastAPI agent endpoint for web consumption:
 
 ```bash
 ##Example with LangGraph
-uv run uvicorn src.langgraph.agent_fastapi:app --host 0.0.0.0 --port 8000
+uv run uvicorn src.agents.langgraph.server:app --host 0.0.0.0 --port 8000
 ```
 
 ### 3. Deploy a Custom MCP Server with FastMCP
@@ -118,20 +134,20 @@ uv run uvicorn src.langgraph.agent_fastapi:app --host 0.0.0.0 --port 8000
 #### 3a. Create the MCP Server
 
 The **`mcp_server.py`** file uses the **FastMCP** framework to convert the single agent function (`conduct_research_and_report`) into a network-accessible tool.
-- **[`With LangGraph`](./src/langgraph/mcp_server.py)**
-- **[`With CrewAI`](./src/crewai/mcp_server.py)**
+- **[`With LangGraph`](./src/agents/langgraph/agent_as_mcp_server.py)**
+- **[`With CrewAI`](./src/agents/crewai/agent_as_mcp_server.py)**
 
 #### 3b. FastMCP Overview
 
 * **Initialization:** The `FastMCP` object handles all protocol details.
     ```python
-    mcp = FastMCP("research_report_generation", stateless_http=True) 
+    mcp = FastMCP("research_report_generation", stateless_http=True)
     ```
 * **Tool Definition:** We define a single tool that wraps the entire process.
     ```python
     @mcp.tool()
     def conduct_research_and_report(query: str) -> str:
-        # ... calls run_research_analysis(query) ...
+        # ... calls run_agent(query) ...
         # ... returns final Markdown report ...
     ```
 
@@ -151,7 +167,7 @@ To run the standalone FastMCP server endpoint for web consumption:
 
 ```bash
 ##Example with LangGraph
-uv run src.langgraph.mcp_server.py
+uv run src.agents.langgraph.agent_as_mcp_server.py
 ```
 ***
 
@@ -161,7 +177,7 @@ Before deployment, verify the server's functionality using the **MCP Inspector**
 
 1.  **Start the MCP Server:** Run your server script in one terminal window (if not already up):
     ```bash
-    uv run src.langgraph.mcp_server.py
+    uv run src.agents.langgraph.agent_as_mcp_server.py
     ```
 2.  **Test the Server (in a new terminal):** Use `npx` to inspect the capabilities and call the tool.
     ```bash

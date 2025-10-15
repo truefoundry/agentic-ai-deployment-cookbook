@@ -18,6 +18,9 @@ dependencies = [
     "langchain-openai>=0.3.35",
     "langgraph>=0.6.10",
     "fastapi>=0.119.0",
+    "fastmcp>=2.12.4",
+    "uvicorn>=0.34.3",
+    "truefoundry>=0.12.1",
 ]
 requires-python = ">=3.12"
 
@@ -35,3 +38,13 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 # This tells Hatchling to look for packages/modules in the root directory ('.')
 packages = ["."]
+
+[dependency-groups]
+dev = [
+    "autoflake>=2.3.1",
+    "black>=25.9.0",
+    "isort>=7.0.0",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "ruff>=0.14.0",
+]
