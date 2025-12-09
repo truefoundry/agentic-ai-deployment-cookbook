@@ -29,7 +29,7 @@ pip install -U "truefoundry"
 tfy login --host "https://demo.truefoundry.cloud"
 ```
 
-> **Important**: For the hackathon, make sure to use the demo environment at `https://demo.truefoundry.cloud` (or the tenant provided to you) as specified above.
+> **Important**: Always ake sure to use the correct tenant provided to you (for example, `https://demo.truefoundry.cloud`) as specified above.
 
 #### 1b. Agent Flow Design (Jupyter Notebook)
 
