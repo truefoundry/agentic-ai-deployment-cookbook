@@ -21,6 +21,8 @@ dependencies = [
     "fastmcp>=2.12.4",
     "uvicorn>=0.34.3",
     "truefoundry>=0.12.1",
+    "langgraph-checkpoint-sqlite>=2.0.6",
+    "langgraph-cli[inmem]>=0.4.7",
 ]
 requires-python = ">=3.12"
 
