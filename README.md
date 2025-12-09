@@ -29,7 +29,7 @@ pip install -U "truefoundry"
 tfy login --host "https://demo.truefoundry.cloud"
 ```
 
-> **Important**: Always ake sure to use the correct tenant provided to you (for example, `https://demo.truefoundry.cloud`) as specified above.
+> **Important**: Always make sure to use the correct tenant provided to you (for example, `https://demo.truefoundry.cloud`) as specified above.
 
 #### 1b. Agent Flow Design (Jupyter Notebook)
 
