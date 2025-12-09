@@ -1,12 +1,15 @@
-# Import libraries
-import os
-
-from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
+#Import libraries
+import os, uuid
+import sqlite3
+from typing import TypedDict, Annotated, Literal, List
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
-from langgraph.graph import MessagesState, StateGraph
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from langgraph.graph import add_messages, StateGraph, END, MessagesState
+from langgraph.types import Command, interrupt
+from langgraph.checkpoint.sqlite import SqliteSaver
+from dotenv import load_dotenv
 
 # Load environment variables (TAVILY_API_KEY, LLM_GATEWAY_URL, etc.). Override existing loaded environment variables, if this command is rerun
 load_dotenv(override=True)
@@ -24,6 +27,11 @@ llm = ChatOpenAI(
 tavily_tool = TavilySearch(max_results=5)
 tools = [tavily_tool]
 
+# --- Memory Setup ---
+#Create a connection string
+os.makedirs("./checkpoints", exist_ok=True)
+sqlite_conn = sqlite3.connect("checkpoints/checkpoint.sqlite", check_same_thread=False)
+memory = SqliteSaver(sqlite_conn)
 
 # --- 2. Shared Graph State ---
 class ResearchState(MessagesState):
@@ -33,10 +41,12 @@ class ResearchState(MessagesState):
     """
 
     query: str
-    search_results: str
+    search_context: Annotated[List[str], add_messages] #every time the model returns search results - CHANGED
+    human_feedback: Annotated[List[str], add_messages] #every time there's a feedback - CHANGED
     final_report: str
 
 
+# --- 3. Agent Functions (Nodes) ---
 # --- 3. Agent Functions (Nodes) ---
 def researcher_node(state: ResearchState) -> ResearchState:
     """
@@ -46,30 +56,34 @@ def researcher_node(state: ResearchState) -> ResearchState:
     """
     print("--- Researcher Node: Gathering Context ---")
     query = state["query"]
-
+    feedback = state["human_feedback"] if "human_feedback" in state else ["No Feedback yet"] ##Adding human feedback
+    
     # 1. Tool Call: Tavily Search
     search_context = tavily_tool.invoke({"query": query})
     # Format the search results cleanly
     context_string = "\n\n".join(
-        [
-            f"Source: {r['url']}\nTitle: {r['title']}\nSnippet: {r['content'][:300]}..."
-            for r in search_context["results"]
-        ]
+        [f"Source: {r['url']}\nTitle: {r['title']}\nSnippet: {r['content'][:300]}..." for r in search_context["results"]]
     )
 
-    # 2. LLM Call: Synthesize/Summarize
+   # 2. LLM Call: Synthesize/Summarize
     researcher_persona = (
         "You are a Senior Web Researcher. Your goal is to gather the latest and most relevant "
         "information about the user's query and format it as a comprehensive summary. "
         "You are an expert at utilizing the Tavily web search tool to find real-time, accurate, "
         "and cited information on any given topic. Your output must be precise and well-structured."
     )
+    
+    researcher_instruction = (
+        f"""
+        TASK: Conduct an 'advanced' web search for the user's query: '{query}'. 
 
-    researcher_instruction = f"""
-        TASK: Conduct an 'advanced' web search for the user's query: '{query}'.
-        Focus on recent developments and list all sources used in the final summary.
+        Human Feedback: {feedback[-1] if feedback else "No feedback yet"}
 
-        The final output MUST be a single, well-structured text summary of findings,
+        Focus on recent developments and list all sources used in the final summary. 
+        
+        Consider previous human feedback to refine the reponse.
+        
+        The final output MUST be a single, well-structured text summary of findings, 
         using ONLY the context provided below. Expected output: A comprehensive, cited summary.
 
         RESEARCH CONTEXT:
@@ -77,28 +91,54 @@ def researcher_node(state: ResearchState) -> ResearchState:
         {context_string}
         ---
         """
-
-    researcher_prompt = ChatPromptTemplate.from_messages(
-        [
-            SystemMessage(content=researcher_persona),
-            HumanMessage(content=researcher_instruction),
-        ]
     )
-
+    
+    researcher_prompt = ChatPromptTemplate.from_messages([
+        SystemMessage(content=researcher_persona),
+        HumanMessage(content=researcher_instruction)
+    ])
+    
     summary = researcher_prompt | llm
     summary_content = summary.invoke({}).content
+    
+    print(f"[researcher_node] Generated summary:\n{summary_content}\n")
 
+    
     # Update the state with the synthesized context
-    return {"search_context": summary_content}
+    return {"search_context": [AIMessage(content=summary_content)]}
 
+def human_node(state: ResearchState) -> ResearchState: 
+    """Human Intervention node - loops back to model unless input is done"""
 
+    print("--- Human Node: Awaiting Human Feedback ---")
+
+    search_context = state["search_context"]
+
+    # Interrupt to get user feedback
+
+    user_feedback = interrupt(
+        {
+            "search_context": search_context, 
+            "message": "Provide feedback or type 'done' to finish"
+        }
+    )
+
+    print(f"[human_node] Received human feedback: {user_feedback}")
+
+    # If user types "done", transition to END node
+    if user_feedback.lower() == "done": 
+        return Command(update={"human_feedback": state["human_feedback"] + ["Finalised"]}, goto="writer")
+
+    # Otherwise, update feedback and return to model for re-generation
+    return Command(update={"human_feedback": state["human_feedback"] + [user_feedback]}, goto="researcher")
+    
 def writer_node(state: ResearchState) -> ResearchState:
     """
     NODE 2: Acts as the Writer Agent.
     Takes the synthesis from the Researcher and formats it into a final Markdown report.
     """
     print("--- Writer Node: Generating Final Report ---")
-
+    
     # Get the synthesized context from the previous node's output in the state
     summary = state.get("search_context", "No context found.")
     query = state["query"]
@@ -110,9 +150,10 @@ def writer_node(state: ResearchState) -> ResearchState:
         "Your goal is to write a final, professionally formatted markdown report based on the context provided."
     )
 
-    writer_instruction = f"""
+    writer_instruction = (
+        f"""
         TASK: Based on the summary provided by the Researcher Agent, write a final report for the query: '{query}'.
-
+        
         The report must be in **Markdown format** with a clear title (using #) and bullet points.
         The final output must be ONLY the Markdown text. Expected output: A Markdown formatted report.
 
@@ -121,17 +162,16 @@ def writer_node(state: ResearchState) -> ResearchState:
         {summary}
         ---
         """
-
-    writer_prompt = ChatPromptTemplate.from_messages(
-        [
-            SystemMessage(content=writer_persona),
-            HumanMessage(content=writer_instruction),
-        ]
     )
+
+    writer_prompt = ChatPromptTemplate.from_messages([
+        SystemMessage(content=writer_persona),
+        HumanMessage(content=writer_instruction)
+    ])
 
     report_chain = writer_prompt | llm
     final_report_content = report_chain.invoke({}).content
-
+    
     # Update the state with the final report (this will be the final output of the graph)
     return {"final_report": final_report_content}
 
@@ -142,26 +182,29 @@ def writer_node(state: ResearchState) -> ResearchState:
 
 # # Add nodes corresponding to the agents
 # workflow.add_node("researcher", researcher_node)
+# workflow.add_node("human", human_node)
 # workflow.add_node("writer", writer_node)
 
 # # Define the sequential edges (Researcher -> Writer -> END)
 # workflow.set_entry_point("researcher")
-# workflow.add_edge("researcher", "writer")
+# workflow.add_edge("researcher", "human")
+# workflow.add_edge("human", "writer")
 # workflow.set_finish_point("writer")
 
-# # Compile the graph
-# app = workflow.compile()
+# # Compile the graph with database-backed memory
+# app = workflow.compile(checkpointer = memory)
 
 # --- 4. Graph Construction for LangGraph Studio ---
 app = (
     StateGraph(ResearchState)
     .add_node("researcher", researcher_node)
+    .add_node("human", human_node)
     .add_node("writer", writer_node)
     .add_edge("__start__", "researcher")
-    .add_edge("researcher", "writer")
-    .compile(name="Basic Graph")
+    .add_edge("researcher", "human")
+    .set_finish_point("writer")
+    .compile(name="Human-in-the-Loop Graph", checkpointer = memory)
 )
-
 
 # --- Function to be Wrapped by FastMCP --- Make this asynchronous here.
 async def run_agent(query: str) -> str:
@@ -170,15 +213,36 @@ async def run_agent(query: str) -> str:
     This function is what the FastMCP server will call.
     """
     initial_state = {
-        "query": query,
-        "search_context": "",
-        "final_report": "",
-        "messages": [HumanMessage(content=query)],
+        "query": query, 
+        "search_context": [],
+        "human_feedback": [],
+        "final_report": "", 
+        "messages": [HumanMessage(content=query)]
     }
 
-    # Invoke the compiled graph
-    final_state = await app.ainvoke(initial_state)
+    config = {"configurable": {
+    "thread_id": uuid.uuid4()
+    }}
 
+    # Stream the compiled graph with interrupt()
+    for chunk in app.stream(initial_state, config=config):
+        for node_id, value in chunk.items():
+            #  If we reach an interrupt, continuously ask for human feedback
+    
+            if(node_id == "__interrupt__"):
+                while True: 
+                    user_feedback = input("Provide feedback (or type 'done' when finished): ")
+    
+                    # Resume the graph execution with the user's feedback
+                    app.invoke(Command(resume=user_feedback), config=config)
+    
+                    # Exit loop if user says done
+                    if user_feedback.lower() == "done":
+                        break
+    
+    # The graph execution is complete. Retrieve the final state from the checkpointer.
+    final_state = app.get_state(config).values
+    
     # Return the final report content
     return final_state["final_report"]
 
