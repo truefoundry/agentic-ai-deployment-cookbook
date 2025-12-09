@@ -24,12 +24,12 @@ Before you begin, you need to install the TrueFoundry SDK and authenticate with 
 pip install -U "truefoundry"
 ```
 
-**Step 2: Login to TrueFoundry**
+**Step 2: Login to TrueFoundry** (via the tenant provided to you)
 ```bash
 tfy login --host "https://demo.truefoundry.cloud"
 ```
 
-> **Important**: For the hackathon, make sure to use the demo environment at `https://demo.truefoundry.cloud` as specified above.
+> **Important**: Always make sure to use the correct tenant provided to you (for example, `https://demo.truefoundry.cloud`) as specified above.
 
 #### 1b. Agent Flow Design (Jupyter Notebook)
 
@@ -58,7 +58,7 @@ from crewai import LLM
 truefoundry_llm = LLM(
     api_key="your_truefoundry_api_key",
     base_url="your_truefoundry_gateway_base_url",
-    model="openai/openai-main/gpt-4o",  # Format: <provider>/<your-truefoundry-model-id>
+    model="openai/openai/gpt-5",  # Format: <provider>/<your-truefoundry-model-id>
 )
 # This format allows you to call any model (Anthropic, Gemini, etc.)
 # configured on your TrueFoundry Gateway.
@@ -72,7 +72,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     api_key="your_truefoundry_api_key",
     base_url="your_truefoundry_gateway_base_url/v1",
-    model="openai-main/gpt-4o"  # Format: <your-truefoundry-model-id>
+    model="openai/gpt-5"  # Format: <your-truefoundry-model-id>
 )
 # This format allows you to call any model (Anthropic, Gemini, etc.)
 # configured on your TrueFoundry Gateway.
@@ -187,7 +187,7 @@ Before deployment, verify the server's functionality using the **MCP Inspector**
 
 ### 4. Deployment on TrueFoundry (Video Guide)
 
-> **Important**: Sign up only on **https://demo.truefoundry.cloud/** for the Hackathon and do **NOT** use any other tenants/URLs.
+> **Important**: Sign up only on **https://demo.truefoundry.cloud/** (or the tenant provided to you) and do **NOT** use any other tenants/URLs.
 
 ---
 
