@@ -174,7 +174,7 @@ async def run_agent(query: str) -> str:
 
 
 if __name__ == "__main__":
-    # Example Hackathon Query
+    # Example Query
     query = "Latest developments in quantum computing hardware in 2025"
     print(f"--- Starting LangGraph Research Flow for: {query} ---")
     result = run_agent(query)

@@ -89,7 +89,7 @@ async def run_agent(query: str):
 
 
 if __name__ == "__main__":
-    # Example Hackathon Query
+    # Example Query
     query = "Latest developments in quantum computing hardware in 2025"
 
     final_output = run_agent(query)
