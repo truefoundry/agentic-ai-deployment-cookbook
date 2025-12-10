@@ -2,7 +2,7 @@
   "$schema": "https://langgra.ph/schema.json",
   "dependencies": ["."],
   "graphs": {
-     "agent": "./src/agents/langgraph/agent_hitl_memory.py:app"
+     "agent": "./src/agents/langgraph/agent_hitl.py:app"
   },
   "env": ".env",
   "image_distro": "wolfi"
