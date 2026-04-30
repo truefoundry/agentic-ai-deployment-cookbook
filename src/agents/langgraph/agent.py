@@ -1,6 +1,6 @@
 # Import libraries
 import os
-
+import asyncio
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,17 +13,46 @@ load_dotenv(override=True)
 
 # --- Configuration ---
 # 1. Update the LLM initialization for LangGraph with TrueFoundry
-llm = ChatOpenAI(
-    model=os.getenv("LLM_MODEL_LANGCHAIN"),
+llm_researcher = ChatOpenAI(
+    model=os.getenv("LLM_MODEL_RESEARCHER"),
     base_url=os.getenv("LLM_GATEWAY_URL"),
     api_key=os.getenv("TFY_API_KEY"),
+    model_kwargs={
+      "stream": False,
+      "extra_headers":{
+        "X-TFY-METADATA": '{}',
+        "X-TFY-LOGGING-CONFIG": '{"enabled": true}',
+      },
+    },
+    extra_body={
+      "mcp_servers": [
+        {
+            "integration_fqn": "live-demo:mcp-server:web-search",
+            "enable_all_tools": False,
+            "tools": [{"name": "search"}]
+        }
+      ],
+      "iteration_limit": 20,
+    },
 )
 
-# --- Tools Setup ---
-# Tavily Search Tool for web research
-tavily_tool = TavilySearch(max_results=5)
-tools = [tavily_tool]
+llm_writer = ChatOpenAI(
+    model=os.getenv("LLM_MODEL_WRITER"),
+    base_url=os.getenv("LLM_GATEWAY_URL"),
+    api_key=os.getenv("TFY_API_KEY"),
+    model_kwargs={
+      "stream": False,
+      "extra_headers":{
+        "X-TFY-METADATA": '{}',
+        "X-TFY-LOGGING-CONFIG": '{"enabled": true}',
+      },
+    },
+)
 
+# # --- Tools Setup ---
+# # Tavily Search Tool for web research
+# tavily_tool = TavilySearch(max_results=5)
+# tools = [tavily_tool]
 
 # --- 2. Shared Graph State ---
 class ResearchState(MessagesState):
@@ -41,27 +70,17 @@ class ResearchState(MessagesState):
 def researcher_node(state: ResearchState) -> ResearchState:
     """
     NODE 1: Acts as the Researcher Agent.
-    1. Uses Tavily to find web context based on the query.
+    1. Uses web search tool to find web context based on the query.
     2. Uses the LLM to summarize and synthesize the raw search results.
     """
     print("--- Researcher Node: Gathering Context ---")
     query = state["query"]
 
-    # 1. Tool Call: Tavily Search
-    search_context = tavily_tool.invoke({"query": query})
-    # Format the search results cleanly
-    context_string = "\n\n".join(
-        [
-            f"Source: {r['url']}\nTitle: {r['title']}\nSnippet: {r['content'][:300]}..."
-            for r in search_context["results"]
-        ]
-    )
-
     # 2. LLM Call: Synthesize/Summarize
     researcher_persona = (
         "You are a Senior Web Researcher. Your goal is to gather the latest and most relevant "
         "information about the user's query and format it as a comprehensive summary. "
-        "You are an expert at utilizing the Tavily web search tool to find real-time, accurate, "
+        "You are an expert at utilizing the web search tool to find real-time, accurate, "
         "and cited information on any given topic. Your output must be precise and well-structured."
     )
 
@@ -70,12 +89,7 @@ def researcher_node(state: ResearchState) -> ResearchState:
         Focus on recent developments and list all sources used in the final summary.
 
         The final output MUST be a single, well-structured text summary of findings,
-        using ONLY the context provided below. Expected output: A comprehensive, cited summary.
-
-        RESEARCH CONTEXT:
-        ---
-        {context_string}
-        ---
+        using ONLY the context from web search tool as provided. Expected output: A comprehensive, cited summary.
         """
 
     researcher_prompt = ChatPromptTemplate.from_messages(
@@ -85,7 +99,7 @@ def researcher_node(state: ResearchState) -> ResearchState:
         ]
     )
 
-    summary = researcher_prompt | llm
+    summary = researcher_prompt | llm_researcher
     summary_content = summary.invoke({}).content
 
     # Update the state with the synthesized context
@@ -129,7 +143,7 @@ def writer_node(state: ResearchState) -> ResearchState:
         ]
     )
 
-    report_chain = writer_prompt | llm
+    report_chain = writer_prompt | llm_writer
     final_report_content = report_chain.invoke({}).content
 
     # Update the state with the final report (this will be the final output of the graph)
@@ -185,8 +199,8 @@ async def run_agent(query: str) -> str:
 
 if __name__ == "__main__":
     # Example Query
-    query = "Latest developments in quantum computing hardware in 2025"
+    query = "Latest developments in quantum computing hardware in 2026"
     print(f"--- Starting LangGraph Research Flow for: {query} ---")
-    result = run_agent(query)
+    result = asyncio.run(run_agent(query))
     print("\n\n=== FINAL REPORT (LangGraph Output) ===")
     print(result)
